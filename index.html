@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>棒球球員數據</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .table-container {
+            overflow-x: auto;
+            max-width: 100%;
+        }
+        .fixed-column {
+            position: sticky;
+            background: white;
+            z-index: 10;
+            border-right: 1px solid #e5e7eb;
+        }
+        .jersey-column { left: 0; }
+        .photo-column { left: 60px; }
+        .name-column { left: 160px; }
+        .highlight { background-color: #fefcbf; }
+        .modal { display: none; }
+        .modal.show { display: block; }
+        table {
+            background-color: white;
+            border-collapse: collapse;
+        }
+        tbody tr {
+            background-color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-4">
+        <h1 class="text-2xl font-bold mb-4">棒球球員數據分析</h1>
+        <div class="table-container">
+            <table id="playerTable" class="min-w-full border">
+                <thead>
+                    <tr class="bg-gray-200">
+                        <th class="fixed-column jersey-column p-2 border cursor-pointer">背號</th>
+                        <th class="fixed-column photo-column p-2 border">照片</th>
+                        <th class="fixed-column name-column p-2 border cursor-pointer">姓名</th>
+                        <th class="p-2 border cursor-pointer">打席</th>
+                        <th class="p-2 border cursor-pointer">打數</th>
+                        <th class="p-2 border cursor-pointer">安打</th>
+                        <th class="p-2 border cursor-pointer">全壘打</th>
+                        <th class="p-2 border cursor-pointer">打點</th>
+                        <th class="p-2 border cursor-pointer">得分</th>
+                        <th class="p-2 border cursor-pointer">盜壘</th>
+                        <th class="p-2 border cursor-pointer">四壞</th>
+                        <th class="p-2 border cursor-pointer">三振</th>
+                        <th class="p-2 border cursor-pointer">打擊率</th>
+                        <th class="p-2 border cursor-pointer">上壘率</th>
+                        <th class="p-2 border cursor-pointer">長打率</th>
+                        <th class="p-2 border cursor-pointer">OPS</th>
+                    </tr>
+                </thead>
+                <tbody id="playerTableBody"></tbody>
+            </table>
+        </div>
+        <!-- Modal -->
+        <div id="playerModal" class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div class="bg-white p-6 rounded-lg max-w-lg w-full">
+                <h2 id="modalTitle" class="text-xl font-bold mb-4"></h2>
+                <div id="modalContent"></div>
+                <button id="closeModal" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Fetch and parse CSV
+        async function loadData() {
+            try {
+                const response = await fetch('https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv');
+                if (!response.ok) throw new Error('無法加載 CSV 數據');
+                const text = await response.text();
+                const rows = text.trim().split('\n').map(row => row.split(','));
+                const headers = rows[0].map(header => header.trim());
+                const data = rows.slice(1).map(row => {
+                    const obj = {};
+                    headers.forEach((header, i) => {
+                        obj[header] = row[i] ? row[i].trim() : '';
+                    });
+                    // Calculate OPS
+                    const obp = parseFloat(obj['上壘率']) || 0;
+                    const slg = parseFloat(obj['長打率']) || 0;
+                    obj['OPS'] = (obp + slg).toFixed(3);
+                    return obj;
+                }).filter(obj => obj['姓名']); // 過濾空行
+                renderTable(data);
+                setupSorting(data);
+            } catch (error) {
+                console.error('錯誤:', error);
+                document.getElementById('playerTableBody').innerHTML = '<tr><td colspan="16">無法加載數據，請檢查連結或網路。</td></tr>';
+            }
+        }
+
+        // Render table
+        function renderTable(data) {
+            const tbody = document.getElementById('playerTableBody');
+            tbody.innerHTML = '';
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                const isHighlight = parseFloat(row['OPS']) > 0.8 || parseFloat(row['打擊率']) > 0.3;
+                if (isHighlight) tr.classList.add('highlight');
+                tr.innerHTML = `
+                    <td class="fixed-column jersey-column p-2 border">${row['背號'] || ''}</td>
+                    <td class="fixed-column photo-column p-2 border">
+                        ${row['照片'] ? `<img src="${row['照片']}" alt="Photo" class="w-16 h-16 object-cover">` : '無照片'}
+                    </td>
+                    <td class="fixed-column name-column p-2 border cursor-pointer hover:text-blue-500" onclick="showModal(${JSON.stringify(row)})">${row['姓名'] || ''}</td>
+                    <td class="p-2 border">${row['打席'] || ''}</td>
+                    <td class="p-2 border">${row['打數'] || ''}</td>
+                    <td class="p-2 border">${row['安打'] || ''}</td>
+                    <td class="p-2 border">${row['全壘打'] || ''}</td>
+                    <td class="p-2 border">${row['打點'] || ''}</td>
+                    <td class="p-2 border">${row['得分'] || ''}</td>
+                    <td class="p-2 border">${row['盜壘'] || ''}</td>
+                    <td class="p-2 border">${row['四壞'] || ''}</td>
+                    <td class="p-2 border">${row['三振'] || ''}</td>
+                    <td class="p-2 border">${row['打擊率'] || ''}</td>
+                    <td class="p-2 border">${row['上壘率'] || ''}</td>
+                    <td class="p-2 border">${row['長打率'] || ''}</td>
+                    <td class="p-2 border">${row['OPS'] || ''}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Sorting functionality
+        function setupSorting(data) {
+            const headers = document.querySelectorAll('#playerTable thead th');
+            let sortDirection = {};
+            headers.forEach((header, index) => {
+                header.addEventListener('click', () => {
+                    const key = header.textContent;
+                    sortDirection[key] = !sortDirection[key];
+                    const sortedData = [...data].sort((a, b) => {
+                        let aValue = a[key];
+                        let bValue = b[key];
+                        if (key === 'OPS' || key === '打擊率' || key === '上壘率' || key === '長打率') {
+                            aValue = parseFloat(aValue) || 0;
+                            bValue = parseFloat(bValue) || 0;
+                        } else if (key !== '照片' && key !== '姓名') {
+                            aValue = parseInt(aValue) || 0;
+                            bValue = parseInt(bValue) || 0;
+                        }
+                        return sortDirection[key] ? aValue > bValue ? 1 : -1 : aValue < bValue ? 1 : -1;
+                    });
+                    renderTable(sortedData);
+                });
+            });
+        }
+
+        // Modal functionality
+        function showModal(player) {
+            const modal = document.getElementById('playerModal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalContent = document.getElementById('modalContent');
+            modalTitle.textContent = `${player['姓名']} 的詳細數據`;
+            modalContent.innerHTML = `
+                <p><strong>背號:</strong> ${player['背號'] || 'N/A'}</p>
+                <p><strong>打席:</strong> ${player['打席'] || 'N/A'}</p>
+                <p><strong>打數:</strong> ${player['打數'] || 'N/A'}</p>
+                <p><strong>安打:</strong> ${player['安打'] || 'N/A'}</p>
+                <p><strong>全壘打:</strong> ${player['全壘打'] || 'N/A'}</p>
+                <p><strong>打點:</strong> ${player['打點'] || 'N/A'}</p>
+                <p><strong>得分:</strong> ${player['得分'] || 'N/A'}</p>
+                <p><strong>盜壘:</strong> ${player['盜壘'] || 'N/A'}</p>
+                <p><strong>四壞:</strong> ${player['四壞'] || 'N/A'}</p>
+                <p><strong>三振:</strong> ${player['三振'] || 'N/A'}</p>
+                <p><strong>打擊率:</strong> ${player['打擊率'] || 'N/A'}</p>
+                <p><strong>上壘率:</strong> ${player['上壘率'] || 'N/A'}</p>
+                <p><strong>長打率:</strong> ${player['長打率'] || 'N/A'}</p>
+                <p><strong>OPS:</strong> ${player['OPS'] || 'N/A'}</p>
+                ${player['照片'] ? `<img src="${player['照片']}" alt="Photo" class="w-32 h-32 object-cover mt-2">` : ''}
+            `;
+            modal.classList.add('show');
+        }
+
+        document.getElementById('closeModal').addEventListener('click', () => {
+            document.getElementById('playerModal').classList.remove('show');
+        });
+
+        // Load data on page load
+        loadData();
+    </script>
+</body>
+</html>
