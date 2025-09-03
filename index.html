@@ -1,192 +1,100 @@
-
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8">
   <title>球員成績表（含照片）</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
-    :root {
-      --sticky-w1: 70px;   /* 背號欄寬 */
-      --sticky-w2: 90px;   /* 照片欄寬 */
-      --sticky-w3: 140px;  /* 姓名欄寬 */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
     }
-    body { font-family: ui-sans-serif, system-ui, -apple-system, "PingFang TC", "Noto Sans TC", Arial; margin: 18px; }
-    h1 { margin: 6px 0 14px; }
-    .toolbar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-    .search { padding:8px 10px; border:1px solid #ccc; border-radius:8px; min-width:220px; }
-    table { border-collapse: collapse; width: 100%; overflow-x: auto; display:block; }
-    th, td { border:1px solid #e5e7eb; padding:8px 10px; white-space:nowrap; text-align:center; background:#fff; }
-    thead th { position: sticky; top: 0; z-index: 3; background:#f3f4f6; cursor: pointer; }
-    /* 凍結前三欄：背號、照片、姓名 */
-    tbody td:nth-child(1), thead th:nth-child(1), tfoot td:nth-child(1) { position: sticky; left: 0; z-index: 2; min-width:var(--sticky-w1); }
-    tbody td:nth-child(2), thead th:nth-child(2), tfoot td:nth-child(2) { position: sticky; left: var(--sticky-w1); z-index: 2; min-width:var(--sticky-w2); }
-    tbody td:nth-child(3), thead th:nth-child(3), tfoot td:nth-child(3) { position: sticky; left: calc(var(--sticky-w1) + var(--sticky-w2)); z-index: 2; min-width:var(--sticky-w3); }
-    tfoot td { background:#fafafa; font-weight:700; }
-    .photo img { width:56px; height:56px; object-fit:cover; border-radius:8px; display:block; margin:auto; }
-    .photo .ph { width:56px; height:56px; display:flex; align-items:center; justify-content:center; background:#f3f4f6; color:#9ca3af; border-radius:8px; font-size:12px; }
-    .sort-ind { font-size: 10px; opacity:.65; margin-left:6px; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #f4f4f4;
+    }
+    img {
+      max-width: 80px;
+      height: auto;
+      border-radius: 6px;
+    }
+    .no-image {
+      color: #aaa;
+    }
   </style>
 </head>
 <body>
-  <h1>球員成績表（含照片）</h1>
-  <div class="toolbar">
-    <input id="q" class="search" placeholder="🔎 輸入背號或姓名搜尋" />
-    <span id="status"></span>
-  </div>
-  <div style="margin-top:10px;">
-    <table id="tbl"></table>
-  </div>
+  <h2>球員成績表（含照片）</h2>
+  <table id="playerTable">
+    <thead>
+      <tr>
+        <th>背號</th>
+        <th>照片</th>
+        <th>姓名</th>
+        <th>安打數</th>
+        <th>打數</th>
+        <th>打擊率</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
-<script>
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv" + "&v=" + Date.now(); // 加上時間戳避免快取
+  <script>
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
 
-// 嘗試將 Google Drive 分享連結轉為可直連圖片連結
-function normalizeImageUrl(url) {
-  if (!url) return "";
-  try {
-    const u = new URL(url);
-    // Google Drive: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-    if (u.hostname.includes("drive.google.com")) {
-      const m = url.match(/\/d\/([^/]+)\//);
-      const id = m ? m[1] : (u.searchParams.get("id") || "");
-      if (id) return `https://drive.google.com/uc?export=view&id=${id}`;
-    }
-    // GitHub raw or Imgur 直接回傳
-    return url;
-  } catch(e) { return url; }
-}
+    // 先定義照片對照表（目前只有逸宏）
+    const photoMap = {
+      "逸宏": "https://raw.githubusercontent.com/samyoung621/test/main/DSC02735.jpeg"
+    };
 
-function isNumeric(x) {
-  return x !== null && x !== "" && !isNaN(parseFloat(x));
-}
+    fetch(csvUrl)
+      .then(response => response.text())
+      .then(data => {
+        const rows = data.split("\n").map(r => r.split(","));
+        const tbody = document.querySelector("#playerTable tbody");
 
-Papa.parse(CSV_URL, {
-  download: true,
-  header: true,
-  complete: (res) => {
-    let data = res.data.filter(r => (r["姓名"] || r["名字"] || r["Name"]) && Object.keys(r).length > 1);
+        rows.slice(1).forEach(row => {
+          if (row.length < 5) return;
 
-    if (!data.length) {
-      document.getElementById("status").textContent = "❌ 載入到 0 筆資料，請確認 CSV 欄位行首是否為標題列，且已發佈。";
-      return;
-    }
-    document.getElementById("status").textContent = `✅ 已載入 ${data.length} 筆資料`;
+          const tr = document.createElement("tr");
 
-    // 如果沒有 OPS 欄，但有「上壘率」「長打率」，自動計算
-    data = data.map(row => {
-      const obp = parseFloat(row["上壘率"]);
-      const slg = parseFloat(row["長打率"]);
-      if (!row["OPS"] && isNumeric(obp) && isNumeric(slg)) {
-        row["OPS"] = (obp + slg).toFixed(3);
-      }
-      return row;
-    });
+          const num = row[0];
+          const name = row[2];
+          const hits = row[3];
+          const atBats = row[4];
+          const avg = row[5];
 
-    const table = document.getElementById("tbl");
-    const headers = Object.keys(data[0]);
-
-    // 將「背號/照片/姓名」調整到前三欄（若存在）
-    const wantedOrder = ["背號","照片","姓名"];
-    const others = headers.filter(h => !wantedOrder.includes(h));
-    const finalHeaders = wantedOrder.filter(h => headers.includes(h)).concat(others);
-
-    const thead = document.createElement("thead");
-    const hr = document.createElement("tr");
-    finalHeaders.forEach((h, idx) => {
-      const th = document.createElement("th");
-      th.textContent = h;
-      const ind = document.createElement("span");
-      ind.className = "sort-ind";
-      th.appendChild(ind);
-      th.addEventListener("click", () => sortBy(idx, th));
-      hr.appendChild(th);
-    });
-    thead.appendChild(hr);
-    table.appendChild(thead);
-
-    const tbody = document.createElement("tbody");
-    function renderRows(rows) {
-      tbody.innerHTML = "";
-      rows.forEach(r => {
-        const tr = document.createElement("tr");
-        finalHeaders.forEach(h => {
-          const td = document.createElement("td");
-          if (h === "照片") {
-            td.className = "photo";
-            const src = normalizeImageUrl(r[h]);
-            if (src) {
-              td.innerHTML = `<img loading="lazy" referrerpolicy="no-referrer" src="${src}" alt="photo" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph',innerText:'No Image'}))" />`;
-            } else {
-              td.innerHTML = '<div class="ph">No Image</div>';
-            }
+          // 照片欄位
+          let photoTd = document.createElement("td");
+          if (photoMap[name]) {
+            let img = document.createElement("img");
+            img.src = photoMap[name];
+            img.alt = name;
+            photoTd.appendChild(img);
           } else {
-            td.textContent = r[h] ?? "";
+            photoTd.innerHTML = '<span class="no-image">No Image</span>';
           }
-          tr.appendChild(td);
+
+          tr.innerHTML = `
+            <td>${num}</td>
+            <td>${photoTd.innerHTML}</td>
+            <td>${name}</td>
+            <td>${hits}</td>
+            <td>${atBats}</td>
+            <td>${avg}</td>
+          `;
+
+          tbody.appendChild(tr);
         });
-        tbody.appendChild(tr);
       });
-    }
-    renderRows(data);
-    table.appendChild(tbody);
-
-    // 平均列（僅對數值欄計算）
-    const tfoot = document.createElement("tfoot");
-    const avgTr = document.createElement("tr");
-    finalHeaders.forEach((h, i) => {
-      const td = document.createElement("td");
-      if (i === 0) td.textContent = "平均";
-      else if (h === "照片" || h === "姓名") td.textContent = "";
-      else {
-        const nums = data.map(r => parseFloat(r[h])).filter(v => !isNaN(v));
-        td.textContent = nums.length ? (nums.reduce((a,b)=>a+b,0)/nums.length).toFixed(3) : "";
-      }
-      avgTr.appendChild(td);
-    });
-    tfoot.appendChild(avgTr);
-    table.appendChild(tfoot);
-
-    // 搜尋（背號/姓名）
-    document.getElementById("q").addEventListener("input", function() {
-      const v = this.value.trim().toLowerCase();
-      const rows = Array.from(tbody.rows);
-      rows.forEach(row => {
-        const id = (row.cells[0]?.textContent || "").toLowerCase();
-        const name = (row.cells[2]?.textContent || row.cells[1]?.textContent || "").toLowerCase();
-        row.style.display = (id.includes(v) || name.includes(v)) ? "" : "none";
-      });
-    });
-
-    // 欄位排序
-    let sortState = { index: -1, dir: 1 };
-    function sortBy(index, thEl) {
-      const label = finalHeaders[index];
-      const rows = Array.from(tbody.rows);
-      const dir = (sortState.index === index) ? -sortState.dir : 1;
-      sortState = { index, dir };
-
-      rows.sort((a,b) => {
-        let x = a.cells[index].textContent.trim();
-        let y = b.cells[index].textContent.trim();
-        const xn = parseFloat(x), yn = parseFloat(y);
-        if (!isNaN(xn) && !isNaN(yn)) { x = xn; y = yn; }
-        if (x < y) return -1*dir;
-        if (x > y) return 1*dir;
-        return 0;
-      });
-      rows.forEach(r => tbody.appendChild(r));
-
-      // 更新排序指示
-      thead.querySelectorAll(".sort-ind").forEach(s => s.textContent = "");
-      thEl.querySelector(".sort-ind").textContent = dir === 1 ? "▲" : "▼";
-    }
-  },
-  error: (err) => {
-    document.getElementById("status").textContent = "❌ 載入失敗：" + (err?.message || err);
-  }
-});
-</script>
+  </script>
 </body>
 </html>
