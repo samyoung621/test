@@ -18,7 +18,7 @@
             border-collapse: collapse;
             width: 100%;
             margin-top: 20px;
-            min-width: 800px; /* 確保表格足夠寬以觸發滾動 */
+            min-width: 900px;
         }
         th, td {
             border: 1px solid #ddd;
@@ -39,14 +39,14 @@
             left: 0;
             z-index: 3;
             background-color: #fff;
-            min-width: 80px; /* 固定背號寬度 */
+            min-width: 80px;
         }
         th:nth-child(2), td:nth-child(2) {
             position: sticky;
-            left: 80px; /* 根據背號寬度調整 */
+            left: 80px;
             z-index: 3;
             background-color: #fff;
-            min-width: 120px; /* 固定姓名寬度 */
+            min-width: 150px; /* 增加姓名欄寬度以容納更多字符 */
         }
         img {
             max-width: 120px;
@@ -153,7 +153,7 @@
             complete: function(results) {
                 const data = results.data.filter(row => Object.keys(row).length > 0);
                 const headers = results.meta.fields;
-                console.log("Headers:", headers); // 調試：檢查表頭
+                console.log("Headers:", headers); // 調試表頭
 
                 const headerRow = document.getElementById("headerRow");
                 headers.forEach((header, index) => {
@@ -167,10 +167,10 @@
                 const nameIndex = headers.indexOf("姓名");
                 const photoIndex = headers.indexOf("照片");
                 const numberIndex = headers.indexOf("背號");
-                console.log("Indices:", { nameIndex, photoIndex, numberIndex }); // 調試：檢查索引
+                console.log("Indices:", { nameIndex, photoIndex, numberIndex }); // 調試索引
 
                 if (nameIndex === -1) {
-                    console.error("未找到 '姓名' 欄位，檢查 CSV 表頭是否為 '姓名'");
+                    console.error("未找到 '姓名' 欄位，檢查 CSV 表頭是否為 '姓名' 或數據是否缺失");
                     return;
                 }
 
@@ -179,15 +179,15 @@
                     const tr = document.createElement("tr");
                     headers.forEach((header, index) => {
                         const td = document.createElement("td");
-                        const cell = row[header] || "";
-                        if (index === photoIndex && cell) {
+                        const cell = row[header] || "未提供";
+                        if (index === photoIndex && cell !== "未提供") {
                             const img = document.createElement("img");
                             img.src = convertToRawUrl(cell.trim());
                             img.alt = `背號 ${row["背號"] || "未知"} 照片`;
                             img.onerror = () => { td.innerHTML = '<span class="error-img">圖片載入失敗</span>'; };
                             td.appendChild(img);
                         } else {
-                            td.textContent = cell || "未提供"; // 確保顯示空值
+                            td.textContent = cell;
                         }
                         if (index === nameIndex) {
                             td.classList.add("name-cell");
