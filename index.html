@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>CSV 轉網頁</title>
+    <title>顯示球員照片</title>
     <style>
         table {
             border-collapse: collapse;
@@ -17,10 +17,19 @@
         th {
             background-color: #f2f2f2;
         }
+        img {
+            max-width: 100px; /* 調整圖片大小 */
+            height: auto;
+            display: block;
+        }
+        .error-img {
+            color: red;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
-    <h1>CSV 數據表格</h1>
+    <h1>球員資料表格</h1>
     <table id="dataTable">
         <thead>
             <tr id="headerRow"></tr>
@@ -31,6 +40,16 @@
     <script>
         // 從 Google Sheets 提供的 CSV 連結獲取數據
         const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
+
+        // 函數：將 GitHub blob URL 轉為 raw URL
+        function convertToRawUrl(url) {
+            if (url.includes("github.com") && url.includes("/blob/")) {
+                return url
+                    .replace("github.com", "raw.githubusercontent.com")
+                    .replace("/blob/", "/");
+            }
+            return url;
+        }
 
         fetch(csvUrl)
             .then(response => response.text())
@@ -47,13 +66,27 @@
                     headerRow.appendChild(th);
                 });
 
+                // 找到「照片」欄位的索引
+                const photoIndex = headers.indexOf("照片");
+
                 // 填充表格內容
                 const dataBody = document.getElementById("dataBody");
                 for (let i = 1; i < rows.length; i++) {
                     const tr = document.createElement("tr");
-                    rows[i].forEach(cell => {
+                    rows[i].forEach((cell, index) => {
                         const td = document.createElement("td");
-                        td.textContent = cell;
+                        // 如果是「照片」欄位，渲染為圖片
+                        if (index === photoIndex && cell) {
+                            const img = document.createElement("img");
+                            img.src = convertToRawUrl(cell.trim()); // 轉換 URL
+                            img.alt = `球員 ${rows[i][0]} 照片`; // 使用姓名作為 alt
+                            img.onerror = function() {
+                                this.outerHTML = `<span class="error-img">圖片載入失敗</span>`;
+                            }; // 處理無效圖片
+                            td.appendChild(img);
+                        } else {
+                            td.textContent = cell;
+                        }
                         tr.appendChild(td);
                     });
                     dataBody.appendChild(tr);
