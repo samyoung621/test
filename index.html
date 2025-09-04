@@ -1,97 +1,49 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <title>球員成績表（含照片）</title>
+  <title>球員測試頁</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 20px;
+      text-align: center;
+      padding: 20px;
     }
     table {
+      margin: auto;
       border-collapse: collapse;
-      width: 100%;
-      margin-top: 20px;
+      width: 60%;
     }
     th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
+      border: 1px solid #333;
+      padding: 10px;
       text-align: center;
     }
-    th {
-      background-color: #f4f4f4;
-    }
     img {
-      max-width: 80px;
-      height: auto;
-      border-radius: 6px;
-    }
-    .no-image {
-      color: #aaa;
+      max-width: 120px;
+      border-radius: 10px;
     }
   </style>
 </head>
 <body>
-  <h2>球員成績表（含照片）</h2>
-  <table id="playerTable">
-    <thead>
-      <tr>
-        <th>背號</th>
-        <th>照片</th>
-        <th>姓名</th>
-        <th>安打數</th>
-        <th>打數</th>
-        <th>打擊率</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
+  <h1>球員測試頁</h1>
+  <table>
+    <tr>
+      <th>背號</th>
+      <th>照片</th>
+      <th>姓名</th>
+      <th>安打數</th>
+      <th>打數</th>
+      <th>打擊率</th>
+    </tr>
+    <tr>
+      <td>1</td>
+      <td><img src="https://raw.githubusercontent.com/samyoung621/test/main/DSC02735.jpeg" alt="逸宏"></td>
+      <td>逸宏</td>
+      <td>5</td>
+      <td>12</td>
+      <td>0.417</td>
+    </tr>
   </table>
-
-  <script>
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
-
-    // 照片對照表
-    const photoMap = {
-      "逸宏": "https://raw.githubusercontent.com/samyoung621/test/main/DSC02735.jpeg"
-    };
-
-    fetch(csvUrl)
-      .then(response => response.text())
-      .then(data => {
-        const rows = data.split("\n").map(r => r.split(","));
-        const tbody = document.querySelector("#playerTable tbody");
-
-        rows.slice(1).forEach(row => {
-          if (row.length < 5) return;
-
-          const tr = document.createElement("tr");
-
-          const num = row[0];
-          const name = row[2];
-          const hits = row[3];
-          const atBats = row[4];
-          const avg = row[5];
-
-          // 照片欄位
-          let photoHtml = "";
-          if (photoMap[name]) {
-            photoHtml = `<img src="${photoMap[name]}" alt="${name}" onerror="this.replaceWith(document.createTextNode('No Image'))">`;
-          } else {
-            photoHtml = '<span class="no-image">No Image</span>';
-          }
-
-          tr.innerHTML = `
-            <td>${num}</td>
-            <td>${photoHtml}</td>
-            <td>${name}</td>
-            <td>${hits}</td>
-            <td>${atBats}</td>
-            <td>${avg}</td>
-          `;
-
-          tbody.appendChild(tr);
-        });
-      });
-  </script>
 </body>
 </html>
