@@ -8,19 +8,22 @@
             border-collapse: collapse;
             width: 100%;
             margin-top: 20px;
+            font-family: Arial, sans-serif;
         }
         th, td {
             border: 1px solid #ddd;
-            padding: 8px;
+            padding: 10px;
             text-align: left;
         }
         th {
             background-color: #f2f2f2;
+            font-weight: bold;
         }
         img {
-            max-width: 100px; /* 調整圖片大小 */
+            max-width: 120px; /* 調整圖片大小 */
             height: auto;
             display: block;
+            border-radius: 5px; /* 圓角效果 */
         }
         .error-img {
             color: red;
@@ -38,25 +41,28 @@
     </table>
 
     <script>
-        // 從 Google Sheets 提供的 CSV 連結獲取數據
+        // CSV 連結
         const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
 
         // 函數：將 GitHub blob URL 轉為 raw URL
         function convertToRawUrl(url) {
-            if (url.includes("github.com") && url.includes("/blob/")) {
+            if (url && url.includes("github.com") && url.includes("/blob/")) {
                 return url
                     .replace("github.com", "raw.githubusercontent.com")
                     .replace("/blob/", "/");
             }
-            return url;
+            return url || ""; // 處理空值
         }
 
         fetch(csvUrl)
-            .then(response => response.text())
+            .then(response => {
+                if (!response.ok) throw new Error("無法加載 CSV 文件");
+                return response.text();
+            })
             .then(data => {
                 // 解析 CSV 數據
                 const rows = data.split("\n").map(row => row.split(","));
-                
+
                 // 獲取表頭
                 const headers = rows[0];
                 const headerRow = document.getElementById("headerRow");
@@ -66,8 +72,9 @@
                     headerRow.appendChild(th);
                 });
 
-                // 找到「照片」欄位的索引
+                // 找到「照片」和「背號」欄位的索引
                 const photoIndex = headers.indexOf("照片");
+                const numberIndex = headers.indexOf("背號");
 
                 // 填充表格內容
                 const dataBody = document.getElementById("dataBody");
@@ -78,11 +85,11 @@
                         // 如果是「照片」欄位，渲染為圖片
                         if (index === photoIndex && cell) {
                             const img = document.createElement("img");
-                            img.src = convertToRawUrl(cell.trim()); // 轉換 URL
-                            img.alt = `球員 ${rows[i][0]} 照片`; // 使用姓名作為 alt
+                            img.src = convertToRawUrl(cell.trim());
+                            img.alt = `背號 ${rows[i][numberIndex] || "未知"} 照片`;
                             img.onerror = function() {
                                 this.outerHTML = `<span class="error-img">圖片載入失敗</span>`;
-                            }; // 處理無效圖片
+                            };
                             td.appendChild(img);
                         } else {
                             td.textContent = cell;
@@ -92,7 +99,10 @@
                     dataBody.appendChild(tr);
                 }
             })
-            .catch(error => console.error("錯誤:", error));
+            .catch(error => {
+                console.error("錯誤:", error);
+                document.getElementById("dataBody").innerHTML = `<tr><td colspan="${headers.length}">無法加載數據，請檢查 CSV 連結</td></tr>`;
+            });
     </script>
 </body>
 </html>
