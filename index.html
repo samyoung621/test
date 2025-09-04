@@ -1,287 +1,232 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-    <meta charset="UTF-8">
-    <title>球員資料表格（進階版）</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-        }
-        .table-container {
-            overflow-x: auto;
-            position: relative;
-            max-width: 100%;
-        }
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin-top: 20px;
-            min-width: 900px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: left;
-            white-space: nowrap;
-        }
-        th {
-            background-color: #f2f2f2;
-            font-weight: bold;
-            cursor: pointer;
-            position: sticky;
-            top: 0;
-            z-index: 2;
-        }
-        th:first-child, td:first-child {
-            position: sticky;
-            left: 0;
-            z-index: 3;
-            background-color: #fff;
-            min-width: 80px;
-        }
-        th:nth-child(2), td:nth-child(2) {
-            position: sticky;
-            left: 80px;
-            z-index: 3;
-            background-color: #fff;
-            min-width: 150px; /* 增加姓名欄寬度以容納更多字符 */
-        }
-        img {
-            max-width: 120px;
-            height: auto;
-            display: block;
-            border-radius: 5px;
-        }
-        .highlight {
-            background-color: yellow !important;
-        }
-        .name-cell {
-            cursor: pointer;
-            color: blue;
-            text-decoration: underline;
-        }
-        .error-img {
-            color: red;
-            font-size: 12px;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            overflow: auto;
-            background-color: rgba(0,0,0,0.4);
-            padding-top: 60px;
-        }
-        .modal-content {
-            background-color: #fefefe;
-            margin: 5% auto;
-            padding: 20px;
-            border: 1px solid #888;
-            width: 80%;
-            max-width: 600px;
-        }
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-        }
-        .close:hover,
-        .close:focus {
-            color: black;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        .modal-img {
-            max-width: 200px;
-            height: auto;
-        }
-        .modal-details {
-            margin-top: 20px;
-        }
-        .modal-details p {
-            margin: 5px 0;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>球員成績表（自動連接 Google Sheet）</title>
+
+  <!-- DataTables（排序/搜尋/固定表頭） -->
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Arial, "Microsoft JhengHei", sans-serif; padding: 24px; }
+    h1 { margin: 0 0 16px; }
+    .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .status { font-size: 14px; color: #16a34a; }
+    .status.fail { color: #dc2626; }
+
+    /* 表格寬捲動 + 凍結前兩欄 */
+    .table-wrap { overflow: auto; }
+    table.dataTable thead th { position: sticky; top: 0; background: #fff; z-index: 3; }
+    /* 第1欄（背號）與第2欄（姓名）做 sticky，手機小螢幕可取消 */
+    @media (min-width: 640px) {
+      table.dataTable thead th.sticky-col,
+      table.dataTable tbody td.sticky-col {
+        position: sticky;
+        left: 0;
+        background: #fff;
+        z-index: 2;
+      }
+      table.dataTable thead th.sticky-col-2,
+      table.dataTable tbody td.sticky-col-2 {
+        position: sticky;
+        left: 120px; /* 視實際第1欄寬度調整 */
+        background: #fff;
+        z-index: 2;
+      }
+      /* 讓第1欄寬一點 */
+      table.dataTable tbody td:nth-child(1),
+      table.dataTable thead th:nth-child(1){ min-width: 120px; }
+      table.dataTable tbody td:nth-child(2),
+      table.dataTable thead th:nth-child(2){ min-width: 140px; }
+    }
+
+    /* 手動切換是否凍結（預設打勾）*/
+    .freeze-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+
+    /* 讓數字欄靠右比較好讀 */
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  </style>
 </head>
 <body>
-    <h1>球員資料表格</h1>
-    <div class="table-container">
-        <table id="dataTable">
-            <thead>
-                <tr id="headerRow"></tr>
-            </thead>
-            <tbody id="dataBody"></tbody>
-        </table>
-    </div>
+  <h1>球員成績表（自動連接 Google Sheet）</h1>
 
-    <div id="playerModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2 id="modalName"></h2>
-            <img id="modalPhoto" class="modal-img" alt="球員照片">
-            <div class="modal-details" id="modalDetails"></div>
-            <div id="modalAnalysis">
-                <h3>資料分析</h3>
-                <p id="analysisText"></p>
-            </div>
-        </div>
-    </div>
+  <div class="toolbar">
+    <label class="freeze-toggle">
+      <input id="freezeToggle" type="checkbox" checked>
+      凍結背號與姓名欄
+    </label>
+    <span id="loadStatus" class="status">⏳ 載入中…</span>
+  </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <script>
-        const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
+  <div class="table-wrap">
+    <table id="stats" class="display" style="width:100%">
+      <thead></thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
-        function convertToRawUrl(url) {
-            if (url && url.includes("github.com") && url.includes("/blob/")) {
-                return url
-                    .replace("github.com", "raw.githubusercontent.com")
-                    .replace("/blob/", "/");
-            }
-            return url || "";
+  <!-- 依賴：jQuery + DataTables + PapaParse（解析 CSV 更穩定） -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <script>
+    // 你的 Google Sheet（Publish to web → CSV）
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
+
+    // 可能的欄名（不同人工作表用詞可能略不同，可擴充）
+    const NUMBER_KEYS = ["背號", "球衣號碼", "號碼", "No", "編號"];
+    const NAME_KEYS   = ["姓名", "名字", "球員", "Name"];
+    const OBP_KEYS    = ["上壘率", "OBP"];
+    const SLG_KEYS    = ["長打率", "SLG"];
+    const OPS_KEYS    = ["OPS"];
+
+    // 小工具：在標題列中找特定欄位索引
+    function findIndexByKeys(header, keys){
+      for (const key of keys){
+        const idx = header.indexOf(key);
+        if (idx !== -1) return idx;
+      }
+      return -1;
+    }
+    // 判斷字串是否為數字
+    function isNumeric(x){
+      return x !== null && x !== "" && !Number.isNaN(Number(x));
+    }
+
+    // 套用/移除 sticky 樣式
+    function applySticky(enable){
+      const table = document.getElementById("stats");
+      const ths = table.querySelectorAll("thead th");
+      const tdsRows = table.querySelectorAll("tbody tr");
+
+      // 先清掉
+      ths.forEach(th => { th.classList.remove("sticky-col", "sticky-col-2"); });
+      tdsRows.forEach(tr => {
+        const tds = tr.children;
+        if (tds[0]) tds[0].classList.remove("sticky-col");
+        if (tds[1]) tds[1].classList.remove("sticky-col-2");
+      });
+
+      if (!enable) return;
+
+      // 套用第1、2欄 sticky
+      if (ths[0]) ths[0].classList.add("sticky-col");
+      if (ths[1]) ths[1].classList.add("sticky-col-2");
+
+      tdsRows.forEach(tr => {
+        const tds = tr.children;
+        if (tds[0]) tds[0].classList.add("sticky-col");
+        if (tds[1]) tds[1].classList.add("sticky-col-2");
+      });
+    }
+
+    // 主流程：下載與顯示
+    (async function load(){
+      const $status = $("#loadStatus");
+      try{
+        // 下載 CSV 純文字
+        const resp = await fetch(CSV_URL, { cache: "no-store" });
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const text = await resp.text();
+
+        // 解析 CSV
+        const parsed = Papa.parse(text.trim(), { header: true, skipEmptyLines: true });
+        if (parsed.errors?.length){
+          console.warn("CSV Parse warnings:", parsed.errors);
+        }
+        const rows = parsed.data;        // 每列為物件（欄名→值）
+        let header = parsed.meta.fields; // 欄名陣列
+
+        // 準備欄位索引（如果找得到）
+        const idxNo   = findIndexByKeys(header, NUMBER_KEYS);
+        const idxName = findIndexByKeys(header, NAME_KEYS);
+        const idxOBP  = findIndexByKeys(header, OBP_KEYS);
+        const idxSLG  = findIndexByKeys(header, SLG_KEYS);
+        let   idxOPS  = findIndexByKeys(header, OPS_KEYS);
+
+        // 若沒有 OPS 欄，且有上壘率與長打率，動態補上一欄 OPS
+        const needAddOPS = idxOPS === -1 && idxOBP !== -1 && idxSLG !== -1;
+        if (needAddOPS){
+          header.push("OPS");
+          idxOPS = header.length - 1;
         }
 
-        Papa.parse(csvUrl, {
-            download: true,
-            header: true,
-            complete: function(results) {
-                const data = results.data.filter(row => Object.keys(row).length > 0);
-                const headers = results.meta.fields;
-                console.log("Headers:", headers); // 調試表頭
+        // 建表頭
+        const thead = document.querySelector("#stats thead");
+        const headRow = document.createElement("tr");
+        header.forEach((h, i) => {
+          const th = document.createElement("th");
+          th.textContent = h;
+          // 預設把前兩欄當作（背號、姓名）做 sticky
+          if (i === 0) th.classList.add("sticky-col");
+          if (i === 1) th.classList.add("sticky-col-2");
+          headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
 
-                const headerRow = document.getElementById("headerRow");
-                headers.forEach((header, index) => {
-                    const th = document.createElement("th");
-                    th.textContent = header;
-                    th.dataset.index = index;
-                    th.addEventListener("click", sortTable);
-                    headerRow.appendChild(th);
-                });
+        // 建資料列
+        const tbody = document.querySelector("#stats tbody");
+        rows.forEach(obj => {
+          const tr = document.createElement("tr");
 
-                const nameIndex = headers.indexOf("姓名");
-                const photoIndex = headers.indexOf("照片");
-                const numberIndex = headers.indexOf("背號");
-                console.log("Indices:", { nameIndex, photoIndex, numberIndex }); // 調試索引
+          // 若需要補 OPS，先算出來（以該列原始值為準）
+          if (needAddOPS){
+            const obp = Number(obj[header[idxOBP]]) || 0;
+            const slg = Number(obj[header[idxSLG]]) || 0;
+            obj["OPS"] = (obp + slg).toFixed(3);
+          }
 
-                if (nameIndex === -1) {
-                    console.error("未找到 '姓名' 欄位，檢查 CSV 表頭是否為 '姓名' 或數據是否缺失");
-                    return;
-                }
+          header.forEach((h, i) => {
+            const td = document.createElement("td");
+            let val = obj[h] ?? "";
 
-                const dataBody = document.getElementById("dataBody");
-                data.forEach(row => {
-                    const tr = document.createElement("tr");
-                    headers.forEach((header, index) => {
-                        const td = document.createElement("td");
-                        const cell = row[header] || "未提供";
-                        if (index === photoIndex && cell !== "未提供") {
-                            const img = document.createElement("img");
-                            img.src = convertToRawUrl(cell.trim());
-                            img.alt = `背號 ${row["背號"] || "未知"} 照片`;
-                            img.onerror = () => { td.innerHTML = '<span class="error-img">圖片載入失敗</span>'; };
-                            td.appendChild(img);
-                        } else {
-                            td.textContent = cell;
-                        }
-                        if (index === nameIndex) {
-                            td.classList.add("name-cell");
-                            td.addEventListener("click", () => showModal(row));
-                        }
-                        tr.appendChild(td);
-                    });
-                    dataBody.appendChild(tr);
-                });
+            // 數字靠右
+            if (isNumeric(val)) td.classList.add("num");
 
-                highlightMaxValues(headers, dataBody, nameIndex, photoIndex);
-            },
-            error: function(error) {
-                console.error("CSV 解析錯誤:", error);
-            }
+            // 保留原始字串輸出
+            td.textContent = val;
+
+            // sticky 前兩欄
+            if (i === 0) td.classList.add("sticky-col");
+            if (i === 1) td.classList.add("sticky-col-2");
+
+            tr.appendChild(td);
+          });
+
+          tbody.appendChild(tr);
         });
 
-        function sortTable(event) {
-            const th = event.target;
-            const table = th.closest("table");
-            const tbody = table.querySelector("tbody");
-            const index = parseInt(th.dataset.index);
-            const rows = Array.from(tbody.rows);
-            const isAscending = th.dataset.order === "asc";
-            th.dataset.order = isAscending ? "desc" : "asc";
+        // 啟用 DataTables
+        const dt = $("#stats").DataTable({
+          paging: false,
+          info: false,
+          order: [],      // 不預設排序
+          scrollX: true,  // 寬表支援橫向捲動
+          language: {
+            search: "搜尋：",
+            zeroRecords: "沒有符合的資料",
+          }
+        });
 
-            rows.sort((a, b) => {
-                let valA = a.cells[index].textContent.trim();
-                let valB = b.cells[index].textContent.trim();
-                valA = isNaN(parseFloat(valA)) ? valA : parseFloat(valA);
-                valB = isNaN(parseFloat(valB)) ? valB : parseFloat(valB);
-                if (valA < valB) return isAscending ? -1 : 1;
-                if (valA > valB) return isAscending ? 1 : -1;
-                return 0;
-            });
+        // 凍結切換
+        const freeze = document.getElementById("freezeToggle");
+        freeze.addEventListener("change", () => {
+          applySticky(freeze.checked);
+        });
+        // 初次套用 sticky
+        applySticky(freeze.checked);
 
-            rows.forEach(row => tbody.appendChild(row));
-        }
-
-        function highlightMaxValues(headers, tbody, nameIndex, photoIndex) {
-            const numCols = headers.length;
-            for (let col = 0; col < numCols; col++) {
-                if (col === nameIndex || col === photoIndex) continue;
-                let maxVal = -Infinity;
-                const rows = Array.from(tbody.rows);
-                rows.forEach(row => {
-                    const val = parseFloat(row.cells[col].textContent.trim());
-                    if (!isNaN(val) && val > maxVal) maxVal = val;
-                });
-                if (maxVal === -Infinity) continue;
-                rows.forEach(row => {
-                    const val = parseFloat(row.cells[col].textContent.trim());
-                    if (val === maxVal) row.cells[col].classList.add("highlight");
-                });
-            }
-        }
-
-        function showModal(row) {
-            const modal = document.getElementById("playerModal");
-            const modalName = document.getElementById("modalName");
-            const modalPhoto = document.getElementById("modalPhoto");
-            const modalDetails = document.getElementById("modalDetails");
-            const analysisText = document.getElementById("analysisText");
-
-            modalName.textContent = row["姓名"] || "未知球員";
-            modalPhoto.src = convertToRawUrl(row["照片"] ? row["照片"].trim() : "");
-            modalPhoto.alt = row["姓名"] + " 照片";
-
-            modalDetails.innerHTML = "";
-            Object.entries(row).forEach(([key, value]) => {
-                if (key !== "姓名" && key !== "照片") {
-                    const p = document.createElement("p");
-                    p.textContent = `${key}: ${value || "未提供"}`;
-                    modalDetails.appendChild(p);
-                }
-            });
-
-            let analysis = "無額外分析。";
-            if (row["上壘率"] && row["長打率"]) {
-                const obp = parseFloat(row["上壘率"]);
-                const slg = parseFloat(row["長打率"]);
-                if (!isNaN(obp) && !isNaN(slg)) {
-                    analysis = `OPS (上壘率 + 長打率): ${(obp + slg).toFixed(3)}`;
-                }
-            }
-            analysisText.textContent = analysis;
-
-            modal.style.display = "block";
-
-            document.querySelector(".close").onclick = () => { modal.style.display = "none"; };
-            window.onclick = (event) => {
-                if (event.target === modal) modal.style.display = "none";
-            };
-        }
-    </script>
+        $status
+          .removeClass("fail")
+          .text(`✅ 已載入 ${rows.length} 筆資料`);
+      }catch(err){
+        console.error(err);
+        $("#loadStatus")
+          .addClass("fail")
+          .text("❌ 載入失敗：" + (err?.message || err));
+      }
+    })();
+  </script>
 </body>
 </html>
