@@ -1,49 +1,65 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <title>球員測試頁</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
-    }
-    table {
-      margin: auto;
-      border-collapse: collapse;
-      width: 60%;
-    }
-    th, td {
-      border: 1px solid #333;
-      padding: 10px;
-      text-align: center;
-    }
-    img {
-      max-width: 120px;
-      border-radius: 10px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>CSV 轉網頁</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
 </head>
 <body>
-  <h1>球員測試頁</h1>
-  <table>
-    <tr>
-      <th>背號</th>
-      <th>照片</th>
-      <th>姓名</th>
-      <th>安打數</th>
-      <th>打數</th>
-      <th>打擊率</th>
-    </tr>
-    <tr>
-      <td>1</td>
-      <td><img src="https://raw.githubusercontent.com/samyoung621/test/main/DSC02735.jpeg" alt="逸宏"></td>
-      <td>逸宏</td>
-      <td>5</td>
-      <td>12</td>
-      <td>0.417</td>
-    </tr>
-  </table>
+    <h1>CSV 數據表格</h1>
+    <table id="dataTable">
+        <thead>
+            <tr id="headerRow"></tr>
+        </thead>
+        <tbody id="dataBody"></tbody>
+    </table>
+
+    <script>
+        // 從 Google Sheets 提供的 CSV 連結獲取數據
+        const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
+
+        fetch(csvUrl)
+            .then(response => response.text())
+            .then(data => {
+                // 解析 CSV 數據
+                const rows = data.split("\n").map(row => row.split(","));
+                
+                // 獲取表頭
+                const headers = rows[0];
+                const headerRow = document.getElementById("headerRow");
+                headers.forEach(header => {
+                    const th = document.createElement("th");
+                    th.textContent = header;
+                    headerRow.appendChild(th);
+                });
+
+                // 填充表格內容
+                const dataBody = document.getElementById("dataBody");
+                for (let i = 1; i < rows.length; i++) {
+                    const tr = document.createElement("tr");
+                    rows[i].forEach(cell => {
+                        const td = document.createElement("td");
+                        td.textContent = cell;
+                        tr.appendChild(td);
+                    });
+                    dataBody.appendChild(tr);
+                }
+            })
+            .catch(error => console.error("錯誤:", error));
+    </script>
 </body>
 </html>
