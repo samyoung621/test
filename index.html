@@ -50,7 +50,7 @@
   <script>
     const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
 
-    // 先定義照片對照表（目前只有逸宏）
+    // 照片對照表
     const photoMap = {
       "逸宏": "https://raw.githubusercontent.com/samyoung621/test/main/DSC02735.jpeg"
     };
@@ -73,19 +73,16 @@
           const avg = row[5];
 
           // 照片欄位
-          let photoTd = document.createElement("td");
+          let photoHtml = "";
           if (photoMap[name]) {
-            let img = document.createElement("img");
-            img.src = photoMap[name];
-            img.alt = name;
-            photoTd.appendChild(img);
+            photoHtml = `<img src="${photoMap[name]}" alt="${name}" onerror="this.replaceWith(document.createTextNode('No Image'))">`;
           } else {
-            photoTd.innerHTML = '<span class="no-image">No Image</span>';
+            photoHtml = '<span class="no-image">No Image</span>';
           }
 
           tr.innerHTML = `
             <td>${num}</td>
-            <td>${photoTd.innerHTML}</td>
+            <td>${photoHtml}</td>
             <td>${name}</td>
             <td>${hits}</td>
             <td>${atBats}</td>
