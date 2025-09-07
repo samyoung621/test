@@ -1,85 +1,116 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <title>球員資料表</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>球員成績表（含照片）</title>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-    }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      min-width: 800px; /* 讓內容有水平捲動 */
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 8px;
-      text-align: center;
-      white-space: nowrap;
-    }
-    th {
-      background-color: #f2f2f2;
-      position: sticky;
-      top: 0; /* 讓標題列固定 */
-      z-index: 2;
-    }
-    /* 固定背號與姓名欄 */
-    td.sticky, th.sticky {
-      position: sticky;
-      left: 0;
-      background-color: #fff;
-      z-index: 1;
-    }
-    td.sticky-2, th.sticky-2 {
-      position: sticky;
-      left: 80px; /* 根據第一欄寬度調整 */
-      background-color: #fff;
-      z-index: 1;
-    }
-    .table-container {
-      overflow-x: auto;
-      border: 1px solid #ccc;
-    }
+    body { font-family: system-ui, -apple-system, Arial, "Microsoft JhengHei", sans-serif; padding: 24px; }
+    h1 { margin-bottom: 16px; }
+    .table-container { overflow-x: auto; }
+    table.dataTable thead th { position: sticky; top: 0; background: #f9fafb; z-index: 3; }
+    td.num, th.num { text-align: right; }
+    td.photo, th.photo { width: 80px; }
+    td.photo img { width: 72px; height: auto; border-radius: 4px; }
+    td.sticky, th.sticky { position: sticky; left: 0; background: #fff; z-index:2; }
+    td.sticky2, th.sticky2 { position: sticky; left: 100px; background: #fff; z-index:2; }
   </style>
 </head>
 <body>
-  <h2>球員資料表</h2>
+  <h1>球員成績表（含照片）</h1>
   <div class="table-container">
-    <table id="playerTable"></table>
+    <table id="stats" class="display" style="width:100%">
+      <thead></thead>
+      <tbody></tbody>
+      <tfoot></tfoot>
+    </table>
   </div>
 
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
   <script>
-    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
+    const photoBase = "https://raw.githubusercontent.com/samyoung621/test/main/"; // 照片放在 repo 根目錄
+    const photoExt = ".jpeg"; // 可自行調整為 .jpg
 
-    async function loadCSV() {
-      const response = await fetch(csvUrl);
-      const data = await response.text();
-      const rows = data.split("\n").map(row => row.split(","));
+    Papa.parse(CSV_URL, {
+      download: true,
+      header: true,
+      complete: function(res) {
+        const data = res.data.filter(r => r["姓名"] && r["背號"]);
+        if (!data.length) {
+          $("body").prepend("<p style='color: red;'>無資料或 CSV 載入失敗</p>");
+          return;
+        }
 
-      const table = document.getElementById("playerTable");
+        const table = $("#stats");
+        const fields = Object.keys(data[0]);
 
-      rows.forEach((row, rowIndex) => {
-        const tr = document.createElement("tr");
+        // 若 Sheet 沒有 OPS，但有 上壘率 + 長打率，則補算 OPS
+        if (!fields.includes("OPS") && fields.includes("上壘率") && fields.includes("長打率")) {
+          fields.push("OPS");
+          data.forEach(r => {
+            const obp = parseFloat(r["上壘率"]) || 0;
+            const slg = parseFloat(r["長打率"]) || 0;
+            r["OPS"] = (obp + slg).toFixed(3);
+          });
+        }
 
-        row.forEach((cell, colIndex) => {
-          const cellElement = rowIndex === 0 ? document.createElement("th") : document.createElement("td");
-          cellElement.textContent = cell;
+        // 組合表頭
+        let headers = fields.slice();
+        if (headers.includes("背號")) {
+          headers.unshift(headers.splice(headers.indexOf("背號"), 1)[0]);
+        }
+        if (headers.includes("姓名")) {
+          headers.splice(1, 0, headers.splice(headers.indexOf("姓名"), 1)[0]);
+        }
+        if (!headers.includes("照片")) {
+          headers.splice(1, 0, "照片");
+        }
 
-          // 第一欄（背號）固定
-          if (colIndex === 0) cellElement.classList.add("sticky");
-          // 第二欄（姓名）固定
-          if (colIndex === 1) cellElement.classList.add("sticky-2");
+        const thead = $("<thead><tr></tr></thead>").appendTo(table);
+        headers.forEach(h => thead.find("tr").append(`<th class="${h==='背號'?'sticky':h==='姓名'?'sticky2':'photo'}">${h}</th>`));
 
-          tr.appendChild(cellElement);
+        const tbody = $("<tbody></tbody>").appendTo(table);
+        data.forEach(r => {
+          const tr = $("<tr></tr>").appendTo(tbody);
+          headers.forEach(h => {
+            let val = r[h] || "";
+            let cell = $("<td></td>").appendTo(tr);
+            if (h === "照片") {
+              const url = photoBase + r["背號"] + photoExt;
+              cell.addClass("photo").html(`<img src="${url}" alt="${r['姓名']}" onerror="this.onerror=null;this.replaceWith('No Image');">`);
+            } else {
+              cell.text(val).addClass(isNaN(val)?"":"num");
+              if (h === "背號") cell.addClass("sticky");
+              if (h === "姓名") cell.addClass("sticky2");
+            }
+          });
         });
 
-        table.appendChild(tr);
-      });
-    }
+        // 加平均列（footer）
+        const tfoot = $("<tfoot><tr></tr></tfoot>").appendTo(table);
+        headers.forEach(h => {
+          const td = $("<td></td>").appendTo(tfoot.find("tr"));
+          if (!isNaN(data[0][h])) {
+            const vals = data.map(r => parseFloat(r[h])).filter(v => !isNaN(v));
+            td.text((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(3)).addClass("num");
+          }
+        });
 
-    loadCSV();
+        // 啟用 DataTable
+        table.DataTable({
+          paging: false,
+          info: false,
+          scrollX: true,
+          scrollCollapse: true,
+          order: []
+        });
+      }
+    });
   </script>
 </body>
 </html>
