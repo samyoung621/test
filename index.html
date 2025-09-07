@@ -2,19 +2,47 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>球員成績表（含照片）</title>
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
   <style>
-    body { font-family: system-ui, -apple-system, Arial, "Microsoft JhengHei", sans-serif; padding: 24px; }
-    h1 { margin-bottom: 16px; }
-    .table-container { overflow-x: auto; }
-    table.dataTable thead th { position: sticky; top: 0; background: #f9fafb; z-index: 3; }
-    td.num, th.num { text-align: right; }
-    td.photo, th.photo { width: 80px; }
-    td.photo img { width: 72px; height: auto; border-radius: 4px; }
-    td.sticky, th.sticky { position: sticky; left: 0; background: #fff; z-index:2; }
-    td.sticky2, th.sticky2 { position: sticky; left: 100px; background: #fff; z-index:2; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    h1 {
+      margin-bottom: 16px;
+    }
+    .table-container {
+      overflow-x: auto;
+      border: 1px solid #ccc;
+    }
+    table.dataTable thead th {
+      position: sticky;
+      top: 0;
+      background: #f3f4f6;
+      z-index: 3;
+    }
+    td.num, th.num {
+      text-align: right;
+    }
+    td.photo img {
+      width: 72px;
+      height: auto;
+      border-radius: 4px;
+    }
+    td.sticky, th.sticky {
+      position: sticky;
+      left: 0;
+      background: white;
+      z-index: 2;
+    }
+    td.sticky2, th.sticky2 {
+      position: sticky;
+      left: 80px;
+      background: white;
+      z-index: 2;
+    }
   </style>
 </head>
 <body>
@@ -33,80 +61,91 @@
 
   <script>
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
-    const photoBase = "https://raw.githubusercontent.com/samyoung621/test/main/"; // 照片放在 repo 根目錄
-    const photoExt = ".jpeg"; // 可自行調整為 .jpg
+    const photoBase = "https://raw.githubusercontent.com/samyoung621/test/main/"; // 照片存放路徑
+    const photoExt = ".jpeg"; // 照片副檔名
 
     Papa.parse(CSV_URL, {
       download: true,
       header: true,
-      complete: function(res) {
-        const data = res.data.filter(r => r["姓名"] && r["背號"]);
+      complete: function(parsed) {
+        const data = parsed.data.filter(r => r["背號"] && r["姓名"]);
         if (!data.length) {
-          $("body").prepend("<p style='color: red;'>無資料或 CSV 載入失敗</p>");
+          alert("未能取得任何球員資料，請確認 CSV 是否正確發佈。");
           return;
         }
 
-        const table = $("#stats");
-        const fields = Object.keys(data[0]);
+        let headers = Object.keys(parsed.meta.fields);
 
-        // 若 Sheet 沒有 OPS，但有 上壘率 + 長打率，則補算 OPS
-        if (!fields.includes("OPS") && fields.includes("上壘率") && fields.includes("長打率")) {
-          fields.push("OPS");
+        // 自動補 OPS
+        if (!headers.includes("OPS") && headers.includes("上壘率") && headers.includes("長打率")) {
+          headers.push("OPS");
           data.forEach(r => {
-            const obp = parseFloat(r["上壘率"]) || 0;
-            const slg = parseFloat(r["長打率"]) || 0;
-            r["OPS"] = (obp + slg).toFixed(3);
+            r["OPS"] = (parseFloat(r["上壘率"]) + parseFloat(r["長打率"])).toFixed(3);
           });
         }
 
-        // 組合表頭
-        let headers = fields.slice();
-        if (headers.includes("背號")) {
-          headers.unshift(headers.splice(headers.indexOf("背號"), 1)[0]);
-        }
-        if (headers.includes("姓名")) {
-          headers.splice(1, 0, headers.splice(headers.indexOf("姓名"), 1)[0]);
-        }
+        // 照片欄位置
+        const thumbIdx = 1;
         if (!headers.includes("照片")) {
-          headers.splice(1, 0, "照片");
+          headers.splice(thumbIdx, 0, "照片");
         }
 
-        const thead = $("<thead><tr></tr></thead>").appendTo(table);
-        headers.forEach(h => thead.find("tr").append(`<th class="${h==='背號'?'sticky':h==='姓名'?'sticky2':'photo'}">${h}</th>`));
+        // 固定 header 排序
+        const fixedHeaders = [];
+        ["背號","照片","姓名"].forEach(h => {
+          if (headers.includes(h)) {
+            fixedHeaders.push(h);
+            headers.splice(headers.indexOf(h), 1);
+          }
+        });
 
-        const tbody = $("<tbody></tbody>").appendTo(table);
+        headers = fixedHeaders.concat(headers);
+
+        // 建表頭
+        const thead = $("<thead><tr></tr></thead>").appendTo("#stats");
+        headers.forEach((h, idx) => {
+          const th = $("<th></th>").text(h);
+          if (idx === 0) th.addClass("sticky");
+          if (idx === 2) th.addClass("sticky2");
+          thead.find("tr").append(th);
+        });
+
+        // 建表體
+        const tbody = $("<tbody></tbody>").appendTo("#stats");
         data.forEach(r => {
           const tr = $("<tr></tr>").appendTo(tbody);
-          headers.forEach(h => {
-            let val = r[h] || "";
-            let cell = $("<td></td>").appendTo(tr);
+          headers.forEach((h, idx) => {
+            const td = $("<td></td>").appendTo(tr);
             if (h === "照片") {
+              td.addClass("photo");
               const url = photoBase + r["背號"] + photoExt;
-              cell.addClass("photo").html(`<img src="${url}" alt="${r['姓名']}" onerror="this.onerror=null;this.replaceWith('No Image');">`);
+              const img = $(`<img src="${url}" alt="${r['姓名']}">`);
+              img.on("error", function(){ $(this).replaceWith("No Image"); });
+              td.append(img);
             } else {
-              cell.text(val).addClass(isNaN(val)?"":"num");
-              if (h === "背號") cell.addClass("sticky");
-              if (h === "姓名") cell.addClass("sticky2");
+              td.text(r[h] || "");
+              if (!isNaN(r[h])) td.addClass("num");
             }
           });
         });
 
-        // 加平均列（footer）
-        const tfoot = $("<tfoot><tr></tr></tfoot>").appendTo(table);
+        // 加平均列
+        const tfoot = $("<tfoot><tr></tr></tfoot>").appendTo("#stats");
         headers.forEach(h => {
           const td = $("<td></td>").appendTo(tfoot.find("tr"));
-          if (!isNaN(data[0][h])) {
+          if (h === "背號" || h === "姓名" || h === "照片") {
+            td.text("");
+          } else {
             const vals = data.map(r => parseFloat(r[h])).filter(v => !isNaN(v));
-            td.text((vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(3)).addClass("num");
+            td.text(vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(3) : "");
           }
         });
 
         // 啟用 DataTable
-        table.DataTable({
+        $("#stats").DataTable({
           paging: false,
           info: false,
           scrollX: true,
-          scrollCollapse: true,
           order: []
         });
       }
