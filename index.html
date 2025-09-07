@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <title>球員名單</title>
+  <title>棒球數據表</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -11,55 +11,91 @@
     table {
       border-collapse: collapse;
       width: 100%;
-      max-width: 900px;
-      margin: auto;
+      table-layout: fixed;
     }
     th, td {
-      border: 1px solid #999;
-      padding: 8px 12px;
+      border: 1px solid #ccc;
+      padding: 6px;
       text-align: center;
+      white-space: nowrap;
     }
     th {
-      background-color: #f2f2f2;
+      background: #f2f2f2;
+      position: sticky;
+      top: 0;
+      z-index: 2;
     }
-    tr:nth-child(even) {
-      background-color: #fafafa;
+    /* 凍結前兩欄：背號、姓名 */
+    th:nth-child(1), td:nth-child(1),
+    th:nth-child(2), td:nth-child(2),
+    th:nth-child(3), td:nth-child(3) {
+      position: sticky;
+      left: 0;
+      background: #fff;
+      z-index: 1;
     }
+    th:nth-child(2), td:nth-child(2) { left: 60px; }
+    th:nth-child(3), td:nth-child(3) { left: 160px; }
     img {
-      width: 50px;
+      width: 60px;
       height: auto;
       border-radius: 6px;
+    }
+    thead tr th {
+      font-weight: bold;
+    }
+    tfoot td {
+      font-weight: bold;
+      background: #f9e0e0;
     }
   </style>
 </head>
 <body>
-  <h2 style="text-align:center;">球員名單</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>照片</th>
-        <th>姓名</th>
-        <th>背號</th>
-        <th>守備位置</th>
-        <th>球隊</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><img src="player1.jpg" alt="球員1"></td>
-        <td>王小明</td>
-        <td>10</td>
-        <td>投手</td>
-        <td>A隊</td>
-      </tr>
-      <tr>
-        <td><img src="player2.jpg" alt="球員2"></td>
-        <td>李大華</td>
-        <td>18</td>
-        <td>捕手</td>
-        <td>B隊</td>
-      </tr>
-    </tbody>
+  <h2>棒球球員數據表</h2>
+  <table id="playerTable">
+    <thead></thead>
+    <tbody></tbody>
   </table>
+
+  <!-- PapaParse 讀取 CSV -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
+
+    Papa.parse(csvUrl, {
+      download: true,
+      header: true,
+      complete: function(results) {
+        const data = results.data;
+        const table = document.getElementById("playerTable");
+        const thead = table.querySelector("thead");
+        const tbody = table.querySelector("tbody");
+
+        // 建立表頭
+        const headers = Object.keys(data[0]);
+        let headerRow = "<tr>";
+        headers.forEach(h => {
+          headerRow += `<th>${h}</th>`;
+        });
+        headerRow += "</tr>";
+        thead.innerHTML = headerRow;
+
+        // 建立表身
+        data.forEach(row => {
+          let tr = "<tr>";
+          headers.forEach(h => {
+            let cellData = row[h];
+            if (h === "照片") {
+              tr += `<td><img src="${cellData}" alt="球員照片"></td>`;
+            } else {
+              tr += `<td>${cellData}</td>`;
+            }
+          });
+          tr += "</tr>";
+          tbody.innerHTML += tr;
+        });
+      }
+    });
+  </script>
 </body>
 </html>
