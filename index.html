@@ -1,104 +1,83 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
   <title>球員成績表（含照片）</title>
-  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/fixedcolumns/4.3.0/css/fixedColumns.dataTables.min.css">
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    h1 { margin-bottom: 16px; }
-    .table-container { overflow-x: auto; }
-    table.dataTable thead th {
-      position: sticky; top: 0; background: #f3f4f6; z-index: 3;
+    table.dataTable td img {
+      width: 60px;
+      height: auto;
+      border-radius: 6px;
     }
-    td.num, th.num { text-align: right; }
-    td.photo img { width: 72px; height: auto; border-radius: 4px; }
-    td.sticky, th.sticky {
-      position: sticky; left: 0; background: white; z-index: 2;
+    th, td {
+      white-space: nowrap;
     }
-    td.sticky2, th.sticky2 {
-      position: sticky; left: 80px; background: white; z-index: 2;
+    div.dataTables_wrapper {
+      width: 100%;
+      margin: 0 auto;
     }
   </style>
 </head>
 <body>
-  <h1>球員成績表（含照片）</h1>
-  <div class="table-container">
-    <table id="stats" class="display" style="width:100%">
-      <thead></thead>
-      <tbody></tbody>
-      <tfoot></tfoot>
-    </table>
-  </div>
+  <h2>球員成績表（含照片）</h2>
+  <table id="stats" class="display nowrap" style="width:100%">
+    <thead>
+      <tr>
+        <th>照片</th>
+        <th>背號</th>
+        <th>姓名</th>
+        <th>安打數</th>
+        <th>打數</th>
+        <th>打擊率</th>
+        <th>打點</th>
+        <th>一壘安打</th>
+        <th>二壘安打</th>
+        <th>三壘安打</th>
+        <th>全壘打</th>
+        <th>三振</th>
+        <th>四壞球</th>
+        <th>上壘率</th>
+        <th>長打率</th>
+        <th>整體打擊率</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- 範例: 逸宏 -->
+      <tr>
+        <td><img src="https://raw.githubusercontent.com/samyoung621/test/main/photos/DSC02735.jpeg" alt="逸宏"></td>
+        <td>41</td>
+        <td>逸宏</td>
+        <td>21</td>
+        <td>40</td>
+        <td>0.525</td>
+        <td>5</td>
+        <td>17</td>
+        <td>3</td>
+        <td>0</td>
+        <td>0</td>
+        <td>2</td>
+        <td>5</td>
+        <td>0.578</td>
+        <td>0.650</td>
+        <td>0.690</td>
+      </tr>
+      <!-- 之後再加其他球員 -->
+    </tbody>
+  </table>
 
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-
+  <script src="https://code.jquery.com/jquery-3.7.0.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/fixedcolumns/4.3.0/js/dataTables.fixedColumns.min.js"></script>
   <script>
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQG-3TToygmpU9ISirmKzyTHEtFdvP9OUpFRSpB-kzPQCNYlkywx1XEHOqcVwhOdibujEhds8sl1Sim/pub?output=csv";
-
-    Papa.parse(CSV_URL, {
-      download: true,
-      header: true,
-      complete: function(parsed) {
-        const data = parsed.data.filter(r => r["背號"] && r["姓名"]);
-        if (!data.length) { alert("CSV 無資料或讀取失敗"); return; }
-
-        let headers = parsed.meta.fields;
-
-        if (!headers.includes("OPS") && headers.includes("上壘率") && headers.includes("長打率")) {
-          headers.push("OPS");
-          data.forEach(r => {
-            r["OPS"] = (parseFloat(r["上壘率"]) + parseFloat(r["長打率"])).toFixed(3);
-          });
+    $(document).ready(function() {
+      $('#stats').DataTable({
+        scrollX: true,
+        fixedColumns: {
+          leftColumns: 2 // 凍結「照片 + 背號 + 姓名」
         }
-
-        const finalHeaders = ["背號","照片","姓名", ...headers.filter(h => !["背號","照片","姓名"].includes(h))];
-        const thead = $("<thead><tr></tr></thead>").appendTo("#stats");
-        finalHeaders.forEach((h,idx) => {
-          const th = $("<th></th>").text(h);
-          if (h==="背號") th.addClass("sticky");
-          if (h==="姓名") th.addClass("sticky2");
-          thead.find("tr").append(th);
-        });
-
-        const tbody = $("<tbody></tbody>").appendTo("#stats");
-        data.forEach(r => {
-          const tr = $("<tr></tr>").appendTo(tbody);
-          finalHeaders.forEach(h => {
-            const td = $("<td></td>").appendTo(tr);
-            if (h==="照片") {
-              td.addClass("photo").html(`<img src="${r[h]}" alt="${r["姓名"]}" onerror="this.onerror=null;this.replaceWith('No Image');">`);
-            } else {
-              const val = r[h] || "";
-              td.text(val);
-              if (!isNaN(val)) td.addClass("num");
-            }
-            if (h==="背號") td.addClass("sticky");
-            if (h==="姓名") td.addClass("sticky2");
-          });
-        });
-
-        const tfoot = $("<tfoot><tr></tr></tfoot>").appendTo("#stats");
-        finalHeaders.forEach(h => {
-          const td = $("<td></td>").appendTo(tfoot.find("tr"));
-          if (h==="背號" || h==="姓名" || h==="照片") {
-            td.text("");
-          } else {
-            const vals = data.map(r => parseFloat(r[h])).filter(v => !isNaN(v));
-            td.text(vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(3) : "").addClass("num");
-          }
-        });
-
-        $("#stats").DataTable({
-          paging: false,
-          info: false,
-          scrollX: true,
-          order: []
-        });
-      }
+      });
     });
   </script>
 </body>
